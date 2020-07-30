@@ -18,11 +18,10 @@ class App extends React.Component {
       this.handleChange = this.handleChange.bind(this)
       this.handleSubmit = this.handleSubmit.bind(this)
       this.getCookie = this.getCookie.bind(this)
-
-
       this.startEdit = this.startEdit.bind(this)
       this.deleteItem = this.deleteItem.bind(this)
       this.strikeUnstrike = this.strikeUnstrike.bind(this)
+      this.accessToken = sessionStorage.getItem('authToken')
   };
 
   getCookie(name) {
@@ -47,8 +46,10 @@ class App extends React.Component {
 
   fetchTasks(){
 
-    fetch('http://127.0.0.1:8000/api/v1/task-list/')
-    .then(response => response.json())
+    fetch('http://127.0.0.1:8000/api/v1/task-list/', {
+      method:'GET',
+      headers:{ 'Authorization': `Bearer ${this.accessToken}` }
+    }).then(response => response.json())
     .then(data => 
       this.setState({
         todoList:data
@@ -89,6 +90,7 @@ class App extends React.Component {
       headers:{
         'Content-type':'application/json',
         'X-CSRFToken':csrftoken,
+        'Authorization': `Bearer ${this.accessToken}`
       },
       body:JSON.stringify(this.state.activeItem)
     }).then((response)  => {
@@ -122,6 +124,7 @@ class App extends React.Component {
       headers:{
         'Content-type':'application/json',
         'X-CSRFToken':csrftoken,
+        'Authorization': `Bearer ${this.accessToken}`,
       },
     }).then((response) =>{
 
@@ -141,6 +144,7 @@ class App extends React.Component {
         headers:{
           'Content-type':'application/json',
           'X-CSRFToken':csrftoken,
+          'Authorization': `Bearer ${this.accessToken}`,
         },
         body:JSON.stringify({'completed': task.completed, 'title':task.title})
       }).then(() => {

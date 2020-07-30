@@ -27,8 +27,8 @@ export default class SignIn extends React.Component {
       this.setState({ displayLoading: true});
       const data = { email: emailInput, password: passInput };
       const response = await axios.post('http://127.0.0.1:8000/api/auth/login/', data);
-      console.log(response.data);
       sessionStorage.setItem('authToken', response.data.access);
+      sessionStorage.setItem('refreshToken', response.data.refresh);
       this.setState({ signedIn: true });
     } catch (error) {
       if(error.response){
