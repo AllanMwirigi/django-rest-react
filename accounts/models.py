@@ -12,7 +12,7 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
   is_staff = models.BooleanField(default=False)
   is_active = models.BooleanField(default=True)
   date_joined = models.DateTimeField(default=timezone.now)
-  location = models.CharField(max_length=30, default=False)
+  location = models.CharField(max_length=30, blank=True)
 
   USERNAME_FIELD = 'email' # defines the unique identifier for the User model -- to email
   REQUIRED_FIELDS = []
@@ -20,4 +20,4 @@ class CustomUser(AbstractBaseUser, PermissionsMixin):
   objects = CustomUserManager() # Specified that all objects for the class come from the CustomUserManager
 
   def __str__(self):
-      return self.email
+    return self.email
