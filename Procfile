@@ -1,0 +1,1 @@
+web: gunicorn todo_restapi.wsgi --log-file -
