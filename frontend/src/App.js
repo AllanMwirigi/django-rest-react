@@ -1,28 +1,35 @@
 import React from 'react';
 import './App.css';
+import axios from 'axios';
 
 
 class App extends React.Component {
   constructor(props){
     super(props);
-      this.state = {
-        todoList:[],
-        activeItem:{
-          id:null, 
-          title:'',
-          completed:false,
-        },
-        editing:false,
-      }
-      this.fetchTasks = this.fetchTasks.bind(this)
-      this.handleChange = this.handleChange.bind(this)
-      this.handleSubmit = this.handleSubmit.bind(this)
-      this.getCookie = this.getCookie.bind(this)
-      this.startEdit = this.startEdit.bind(this)
-      this.deleteItem = this.deleteItem.bind(this)
-      this.strikeUnstrike = this.strikeUnstrike.bind(this)
-      this.accessToken = sessionStorage.getItem('authToken')
-  };
+    this.state = {
+      todoList:[],
+      activeItem:{
+        id:null, 
+        title:'',
+        completed:false,
+      },
+      editing:false,
+    }
+    this.fetchTasks = this.fetchTasks.bind(this)
+    this.handleChange = this.handleChange.bind(this)
+    this.handleSubmit = this.handleSubmit.bind(this)
+    this.getCookie = this.getCookie.bind(this)
+    this.startEdit = this.startEdit.bind(this)
+    this.deleteItem = this.deleteItem.bind(this)
+    this.strikeUnstrike = this.strikeUnstrike.bind(this)
+    this.accessToken = sessionStorage.getItem('authToken')
+    if(process.env.REACT_APP_ENV === 'production'){
+      this.baseUrl = process.env.REACT_APP_PROD_URL;
+    }
+    if(process.env.REACT_APP_ENV === 'development'){
+      this.baseUrl = process.env.REACT_APP_DEV_URL;
+    }
+  }
 
   getCookie(name) {
     var cookieValue = null;
@@ -38,27 +45,48 @@ class App extends React.Component {
         }
     }
     return cookieValue;
-}
-
-  componentDidMount(){
-    this.fetchTasks()
   }
 
-  fetchTasks(){
+  async componentDidMount(){
+    await this.fetchTasks()
+  }
 
-    fetch('http://127.0.0.1:8000/api/v1/task-list/', {
-      method:'GET',
-      headers:{ 'Authorization': `Bearer ${this.accessToken}` }
-    }).then(response => response.json())
-    .then(data => 
-      this.setState({
-        todoList:data
-      })
-    )
+  async fetchTasks(){
+
+    try {
+      const response = await axios.get(`${this.baseUrl}/v1/task-list/`, { headers:{ 'Authorization': `Bearer ${this.accessToken}` }});
+      this.setState({ todoList: response.data })
+    } catch(error) {
+      this.handleReqErrors(error);
+    }
+
+    // fetch('http://127.0.0.1:8000/api/v1/task-list/', {
+    //   method:'GET',
+    //   headers:{ 'Authorization': `Bearer ${this.accessToken}` }
+    // }).then(response => response.json())
+    // .then(data => {
+    //   this.setState({
+    //     todoList:data
+    //   })
+    // }).catch(error => {})
+  }
+
+  handleReqErrors = (error) => {
+    if(error.response){
+      if(error.response.status === 401){
+        const msg = 'Session expired\nKindly login again';
+        alert(msg);
+        sessionStorage.removeItem('authToken');
+        this.props.sessionExpired()
+      }else{
+        alert('Server Error');     
+      }
+    }else{
+      alert('Server Error');         
+    }
   }
 
   handleChange(e){
-    var name = e.target.name
     var value = e.target.value
 
     this.setState({
@@ -69,42 +97,62 @@ class App extends React.Component {
     })
   }
 
-  handleSubmit(e){
+  async handleSubmit(e){
     e.preventDefault()
 
     var csrftoken = this.getCookie('csrftoken')
 
-    var url = 'http://127.0.0.1:8000/api/v1/task-create/'
+    var url = `${this.baseUrl}/v1/task-create/`
 
-    if(this.state.editing == true){
-      url = `http://127.0.0.1:8000/api/v1/task-update/${ this.state.activeItem.id}/`
+    if(this.state.editing === true){
+      url = `${this.baseUrl}/v1/task-update/${ this.state.activeItem.id}/`
       this.setState({
         editing:false
       })
     }
 
-
-
-    fetch(url, {
-      method:'POST',
+    const config = {
       headers:{
         'Content-type':'application/json',
         'X-CSRFToken':csrftoken,
         'Authorization': `Bearer ${this.accessToken}`
       },
-      body:JSON.stringify(this.state.activeItem)
-    }).then((response)  => {
-        this.fetchTasks()
-        this.setState({
-           activeItem:{
+    }
+
+    try {
+      const response = await axios.post(url, this.state.activeItem, config);
+      await this.fetchTasks();
+      this.setState({
+        activeItem:{
           id:null, 
           title:'',
           completed:false,
         }
-        })
-    }).catch(function(error){
-      console.log('ERROR:', error)
-    })
+      });
+    } catch(error) {
+      this.handleReqErrors(error);
+    }
+
+    // fetch(url, {
+    //   method:'POST',
+    //   headers:{
+    //     'Content-type':'application/json',
+    //     'X-CSRFToken':csrftoken,
+    //     'Authorization': `Bearer ${this.accessToken}`
+    //   },
+    //   body:JSON.stringify(this.state.activeItem)
+    // }).then((response)  => {
+    //     this.fetchTasks()
+    //     this.setState({
+    //        activeItem:{
+    //       id:null, 
+    //       title:'',
+    //       completed:false,
+    //     }
+    //     })
+    // }).catch(function(error){
+    //   console.log('ERROR:', error)
+    // })
 
   }
 
@@ -116,40 +164,72 @@ class App extends React.Component {
   }
 
 
-  deleteItem(task){
+  async deleteItem(task){
     var csrftoken = this.getCookie('csrftoken')
 
-    fetch(`http://127.0.0.1:8000/api/v1/task-delete/${task.id}/`, {
-      method:'DELETE',
+    const config = {
       headers:{
         'Content-type':'application/json',
         'X-CSRFToken':csrftoken,
-        'Authorization': `Bearer ${this.accessToken}`,
+        'Authorization': `Bearer ${this.accessToken}`
       },
-    }).then((response) =>{
+    }
 
-      this.fetchTasks()
-    })
+    try {
+      const response = await axios.delete(`${this.baseUrl}/v1/task-delete/${task.id}/`, config);
+      await this.fetchTasks();
+    } catch(error) {
+      this.handleReqErrors(error);
+    }
+
+    // fetch(`${this.baseUrl}/v1/task-delete/${task.id}/`, {
+    //   method:'DELETE',
+    //   headers:{
+    //     'Content-type':'application/json',
+    //     'X-CSRFToken':csrftoken,
+    //     'Authorization': `Bearer ${this.accessToken}`,
+    //   },
+    // }).then((response) =>{
+
+    //   this.fetchTasks()
+    // })
   }
 
 
-  strikeUnstrike(task){
+  async strikeUnstrike(task){
 
     task.completed = !task.completed
     var csrftoken = this.getCookie('csrftoken')
-    var url = `http://127.0.0.1:8000/api/v1/task-update/${task.id}/`
+    var url = `${this.baseUrl}/v1/task-update/${task.id}/`;
 
-      fetch(url, {
-        method:'POST',
-        headers:{
-          'Content-type':'application/json',
-          'X-CSRFToken':csrftoken,
-          'Authorization': `Bearer ${this.accessToken}`,
-        },
-        body:JSON.stringify({'completed': task.completed, 'title':task.title})
-      }).then(() => {
-        this.fetchTasks()
-      })
+    const config = {
+      headers:{
+        'Content-type':'application/json',
+        'X-CSRFToken':csrftoken,
+        'Authorization': `Bearer ${this.accessToken}`
+      },
+    }
+
+    try {
+      const body = {'completed': task.completed, 'title':task.title};
+      const response = await axios.post(url, body, config);
+      await this.fetchTasks();
+    } catch(error) {
+      this.handleReqErrors(error);
+    }
+
+
+      // fetch(url, {
+      //   method:'POST',
+      //   headers:{
+      //     'Content-type':'application/json',
+      //     'X-CSRFToken':csrftoken,
+      //     'Authorization': `Bearer ${this.accessToken}`,
+      //   },
+      //   body:JSON.stringify({'completed': task.completed, 'title':task.title})
+      // }).then(() => {
+      //   this.fetchTasks()
+      // })
 
   }
 
@@ -168,7 +248,7 @@ class App extends React.Component {
                             <input onChange={this.handleChange} className="form-control" id="title" value={this.state.activeItem.title} type="text" name="title" placeholder="Add task.." />
                          </div>
 
-                         <div style={{flex: 1}}>
+                         <div >
                             <input id="submit" className="btn btn-warning" type="submit" name="Add" />
                           </div>
                       </div>
@@ -177,13 +257,13 @@ class App extends React.Component {
               </div>
 
               <div  id="list-wrapper">         
-                    {tasks.map(function(task, index){
+                    { tasks != null && tasks.length !== 0 && tasks.map(function(task, index){
                       return(
                           <div key={index} className="task-wrapper flex-wrapper">
 
                             <div onClick={() => self.strikeUnstrike(task)} style={{flex:7}}>
 
-                                {task.completed == false ? (
+                                {task.completed === false ? (
                                     <span>{task.title}</span>
 
                                   ) : (

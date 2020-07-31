@@ -13,7 +13,18 @@ export default class SignIn extends React.Component {
       signedIn: false,
       emailInput: '', passInput: '', displayLoading: false,
     }
-    // this.alert = this.props.useAlert();
+    if(process.env.REACT_APP_ENV === 'production'){
+      this.baseUrl = process.env.REACT_APP_PROD_URL;
+    }
+    if(process.env.REACT_APP_ENV === 'development'){
+      this.baseUrl = process.env.REACT_APP_DEV_URL;
+    }
+  }
+
+  componentDidMount() {
+    if (sessionStorage.getItem('authToken') != null) {
+      this.setState({signedIn: true});
+    }
   }
 
   login = async () => {
@@ -26,7 +37,7 @@ export default class SignIn extends React.Component {
     try {
       this.setState({ displayLoading: true});
       const data = { email: emailInput, password: passInput };
-      const response = await axios.post('http://127.0.0.1:8000/api/auth/login/', data);
+      const response = await axios.post(`${this.baseUrl}/auth/login/`, data);
       sessionStorage.setItem('authToken', response.data.access);
       sessionStorage.setItem('refreshToken', response.data.refresh);
       this.setState({ signedIn: true });
@@ -45,6 +56,10 @@ export default class SignIn extends React.Component {
     this.setState({ displayLoading: false});
   }
 
+  sessionExpired = () => {
+    this.setState({signedIn: false})
+  }
+
   renderLogin = () => {
     const { displayLoading } = this.state;
     return(
@@ -56,11 +71,11 @@ export default class SignIn extends React.Component {
             <div className="container" style={{paddingBottom: '5%'}}>
 
               <label htmlFor="email"><b>Email</b></label>
-              <input type="text" placeholder="Enter Email" name="email" required 
+              <input type="text" placeholder="Use test@mail.com" name="email" required 
                 onChange={(e) => {this.setState({emailInput: e.target.value})}} value={this.state.emailInput}/>
 
               <label htmlFor="psw"><b>Password</b></label>
-              <input type="password" placeholder="Enter Password" name="psw" required 
+              <input type="password" placeholder="Use test123" name="psw" required 
                 onChange={(e) => {this.setState({passInput: e.target.value})}} value={this.state.passInput}/>
 
               {!displayLoading && <div className="clearfix">
@@ -84,7 +99,7 @@ export default class SignIn extends React.Component {
     return(
       <>
       { !signedIn && this.renderLogin() }
-      { signedIn  && <App/> }
+      { signedIn  && <App sessionExpired={this.sessionExpired}/> }
       </>
     );
   }
